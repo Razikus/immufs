@@ -25,11 +25,34 @@ def test_create_file(immufsClient: ImmuFSClient):
 
 def test_create_directory(immufsClient: ImmuFSClient):
     assert immufsClient.createDirectory("/dir1") == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/dir1/")]
     assert immufsClient.createDirectory("/dir1/dir2") == (True, None)
+    alls = immufsClient.list_directory("/dir1/")
+    assert alls == [PurePath("/dir1/dir2/")]
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/dir1/")]
     assert immufsClient.createFile("/dir1/temp", BytesIO(b"blabla")) == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/dir1/")]
+
+    alls = immufsClient.list_directory("/dir1/")
+    assert alls == [PurePath("/dir1/temp"), PurePath("/dir1/dir2/")]
     assert immufsClient.createDirectory("/dir1/dir2/dir4/") == (True, None)
+
+    alls = immufsClient.list_directory("/dir1/dir2/")
+    assert alls == [PurePath("/dir1/dir2/dir4")]
+
     assert immufsClient.createFile("/dir1/dir2/dir4/aaa", BytesIO(b"blabla")) == (True, None)
+
+    alls = immufsClient.list_directory("/dir1/dir2/dir4/")
+    assert alls == [PurePath("/dir1/dir2/dir4/aaa")]
+
     assert immufsClient.createDirectory("/dir1/dir2/ddd") == (True, None)
+
+    alls = immufsClient.list_directory("/dir1/dir2/ddd/")
+    assert alls == []
+
 
 def test_move_file(immufsClient: ImmuFSClient):
     pytest.fail("Not implemented")

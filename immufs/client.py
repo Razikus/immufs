@@ -28,14 +28,28 @@ class ImmuFSClient:
         return filePath.replace("/", "\\").encode("utf-8")
     
     def list_directory(self, where = "/"):
+        self.ensureLogged()
         lastKey = b''
         lastScan = self.client.scan(lastKey, self._defaultEncode(where), False, 1000)
         keys = []
         while lastScan:
             for item in lastScan.keys():
-                keys.append(PurePath(item.decode("utf-8")))
-            print(lastScan)
+                decoded = item.decode("utf-8")
+                splitted = decoded.split(where)
+                if(len(splitted) == 2):
+                    keys.append(PurePath(item.decode("utf-8")))
             lastScan = self.client.scan(list(lastScan.keys())[-1], self._defaultEncode(where), False, 1000)
+        
+
+        lastKey = b''
+        lastScan = self.client.scan(lastKey, self._getDirectoryKey(where), False, 1000)
+        while lastScan:
+            for item in lastScan.keys():
+                decoded = item.decode("utf-8")
+                splitted = decoded.split(where.replace("/", "|"))
+                if(len(splitted) == 2):
+                    keys.append(PurePath(where).joinpath(PurePath(item.decode("utf-8").replace("|", "/"))))
+            lastScan = self.client.scan(list(lastScan.keys())[-1], self._getDirectoryKey(where), False, 1000)
         return keys
 
     def remove(self, filePath: str):
