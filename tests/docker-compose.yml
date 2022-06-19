@@ -1,0 +1,8 @@
+version: "3"
+services:
+  immudb:
+    restart: always
+    ports:
+      - "3322"
+      - "8080"
+    image: codenotary/immudb:1.3.0

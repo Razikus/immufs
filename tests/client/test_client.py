@@ -1,6 +1,6 @@
 from pathlib import PurePath
 import pytest
-from .. import immufsClient 
+from .. import immufsClient, docker_services_each
 from .. import ImmuFSClient
 from io import BytesIO
 from immufs.client import ErrorCode
@@ -55,10 +55,24 @@ def test_create_directory(immufsClient: ImmuFSClient):
 
 
 def test_move_file(immufsClient: ImmuFSClient):
-    pytest.fail("Not implemented")
+    assert immufsClient.createFile("/test", BytesIO(b"blabla")) == (True, None)
+    assert immufsClient.move("/test", "/test2") == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/test2")]
+    assert immufsClient.move("/test2", "/test") == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/test")]
 
 def test_remove_file(immufsClient: ImmuFSClient):
-    pytest.fail("Not implemented")
+    assert immufsClient.createFile("/test", BytesIO(b"blabla")) == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/test")]
+    assert immufsClient.remove("/test") == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == []
+    assert immufsClient.createFile("/test", BytesIO(b"blabla")) == (True, None)
+    alls = immufsClient.list_directory("/")
+    assert alls == [PurePath("/test")]
 
 def test_append_to_file(immufsClient: ImmuFSClient):
     pytest.fail("Not implemented")
