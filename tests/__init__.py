@@ -32,4 +32,4 @@ def immufsClient(docker_ip, docker_services_each):
     docker_services_each.wait_until_responsive(
         timeout=30.0, pause=0.2, check=lambda: is_responsive(url)
     )
-    return ImmuFSClient(docker_ip, int(clientPort))
+    return ImmuFSClient(docker_ip, int(clientPort), "immudb", "immudb", "defaultdb")

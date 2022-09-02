@@ -1,11 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 #    Copyright (C) 2022 Codenotary 
 #    Adam Raźniewski  <adam@codenotary.com>
 
 from __future__ import print_function
 
-import os, sys
+import os, sys, stat, errno
+from pathlib import PurePath
 from errno import *
 from stat import *
 import fcntl
@@ -18,6 +20,7 @@ except ImportError:
 import fuse
 from fuse import Fuse
 from .client import ImmuFSClient
+from io import BytesIO
 
 
 if not hasattr(fuse, '__version__'):
@@ -37,38 +40,75 @@ def flag2mode(flags):
 
     return m
 
+class ImmuStatVFS:
+    def __init__(self):
+        self.f_bsize=40960
+        self.f_frsize=40960
+        self.f_blocks=61664815
+        self.f_bfree=12768427
+        self.f_bavail=9618616
+        self.f_files=15728640
+        self.f_ffree=10849955
+        self.f_favail=10849955
+        self.f_flag=4096
+        self.f_namemax=255
 
+class ImmuStat(fuse.Stat):
+    def __init__(self):
+        self.st_mode = 0
+        self.st_ino = 0
+        self.st_dev = 0
+        self.st_nlink = 0
+        self.st_uid = 0
+        self.st_gid = 0
+        self.st_size = 0
+        self.st_atime = 0
+        self.st_mtime = 0
+        self.st_ctime = 0
+
+immufsClient = None
 class ImmuFS(Fuse):
 
     def __init__(self, *args, **kw):
-
         Fuse.__init__(self, *args, **kw)
-        self.root = '/'
-        self.client = ImmuFSClient('localhost', 3322)
+        self.serverurl = "localhost:3322"
+        self.login = "immudb"
+        self.password = "immudb"
+        self.database = "defaultdb"
         
 
     def getattr(self, path):
-        print("getattr", path)
-        return os.lstat("." + path)
+        isDir, error = immufsClient.isDirectory(PurePath(path))
+        if(isDir):
+            st = ImmuStat()
+            st.st_mode = stat.S_IFDIR | 0o777
+            st.st_nlink = 2
+            return st
+
+        isFile, error = immufsClient.isFile(PurePath(path))
+        if(isFile):
+            st = ImmuStat()
+            st.st_mode = stat.S_IFREG | 0o777
+            st.st_nlink = 1
+            st.st_size = len(error.value)
+            return st
+
+        return -errno.ENOENT
 
     def readlink(self, path):
         print("readlink", path)
         return os.readlink("." + path)
 
     def readdir(self, path, offset):
-        print("readdir", path, offset)
-        print(os.listdir("." + path))
-        for e in os.listdir("." + path):
-
-            yield fuse.Direntry(e)
+        dirs = immufsClient.list_directory(PurePath(path).as_posix())
+        for e in dirs:
+            yield fuse.Direntry(e.name)
 
     def unlink(self, path):
-        print("unlink", path)
-        os.unlink("." + path)
+        immufsClient.remove(path)
 
     def rmdir(self, path):
-        print("rmdir", path)
-        os.rmdir("." + path)
+        immufsClient.remove(path)
 
     def symlink(self, path, path1):
         print("symlink", path)
@@ -76,7 +116,7 @@ class ImmuFS(Fuse):
 
     def rename(self, path, path1):
         print("rename", path, path1)
-        os.rename("." + path, "." + path1)
+        immufsClient.move(path, path1)
 
     def link(self, path, path1):
         print("link", path, path1)
@@ -84,25 +124,25 @@ class ImmuFS(Fuse):
 
     def chmod(self, path, mode):
         print("chmod", path, mode)
-        os.chmod("." + path, mode)
 
     def chown(self, path, user, group):
         print("chown", path, user, group)
-        os.chown("." + path, user, group)
 
     def truncate(self, path, len):
-        print("truncate", path, len)
-        f = open("." + path, "a")
-        f.truncate(len)
-        f.close()
+        immufsClient.createFile(path, BytesIO(b''))
+        # print("truncate", path, len)
+        # f = open("." + path, "a")
+        # f.truncate(len)
+        # f.close()
 
     def mknod(self, path, mode, dev):
         print("mknod", path, mode, dev)
         os.mknod("." + path, mode, dev)
 
     def mkdir(self, path, mode):
-        print("mkdir", path, mode)
-        os.mkdir("." + path, mode)
+        immufsClient.createDirectory(PurePath(path).as_posix())
+        # print("mkdir", path, mode)
+        # os.mkdir("." + path, mode)
 
     def utime(self, path, times):
         print("utime", path, times)
@@ -110,8 +150,8 @@ class ImmuFS(Fuse):
 
     def access(self, path, mode):
         print("access", path, mode)
-        if not os.access("." + path, mode):
-            return -EACCES
+        # if not os.access("." + path, mode):
+        #     return -EACCES
 
     def statfs(self):
         """
@@ -131,123 +171,94 @@ class ImmuFS(Fuse):
         """
 
         print("statfs")
-        return os.statvfs(".")
+        return ImmuStatVFS()
 
     def fsinit(self):
+
+        global immufsClient
+        print(self.serverurl)
+        print(self.login)
+        print(self.password)
+        print(self.database)
+        
+        immufsClient = ImmuFSClient('localhost', 3322)
         print("fsinit")
-        os.chdir(self.root)
 
     class XmpFile(object):
 
         def __init__(self, path, flags, *mode):
-            print("INIT FILE XMP", path, flags, mode)
-            self.file = os.fdopen(os.open("." + path, flags, *mode),
-                                  flag2mode(flags))
-            self.fd = self.file.fileno()
-            if hasattr(os, 'pread'):
-                self.iolock = None
-            else:
-                self.iolock = Lock()
+            print("INIT FILE XMP", path, flags, mode, flag2mode(flags))
+            self.path = path
+            self.flags = flags
+            self.mode = mode
+            self.readedFileCache = None
+            self.readedFileLength = -1
+            self.writeBufLength = 0
+            self.writeBuf = None
+            self.tooBig = False
 
         def read(self, length, offset):
-            print("READ XML", length, offset)
-            if self.iolock:
-                self.iolock.acquire()
-                try:
-                    self.file.seek(offset)
-                    return self.file.read(length)
-                finally:
-                    self.iolock.release()
+            if(self.readedFileCache == None):
+                self.readedFileCache = immufsClient.readFile(self.path)
+                self.readedFileLength = length
+                return self.readedFileCache[offset:length]
             else:
-                return os.pread(self.fd, length, offset)
+                self.readedFileLength = self.readedFileLength + length
+                return self.readedFileCache[offset + self.readedFileLength:length]
 
         def write(self, buf, offset):
-            print("write XML", buf, offset)
-            if self.iolock:
-                self.iolock.acquire()
-                try:
-                    self.file.seek(offset)
-                    self.file.write(buf)
-                    return len(buf)
-                finally:
-                    self.iolock.release()
-            else:
-                return os.pwrite(self.fd, buf, offset)
+            if(self.tooBig):
+                return -1
+            if(self.writeBuf == None):
+                self.writeBuf = BytesIO()
+            if(self.writeBuf.tell() >= (33554432 - len(buf))):
+                self.writeBuf = None
+                self.tooBig = True
+                return 0
+            self.writeBuf.write(buf)
+            self.writeBufLength = self.writeBufLength + len(buf)
+            return(len(buf))
 
         def release(self, flags):
             print("release XML", flags)
-            self.file.close()
 
         def _fflush(self):
             print("_fflush")
-            if 'w' in self.file.mode or 'a' in self.file.mode:
-                self.file.flush()
 
         def fsync(self, isfsyncfile):
             print("fsync", isfsyncfile)
             self._fflush()
-            if isfsyncfile and hasattr(os, 'fdatasync'):
-                os.fdatasync(self.fd)
-            else:
-                os.fsync(self.fd)
 
         def flush(self):
             print("XMP flush")
+            if(self.writeBuf):
+                self.writeBuf.seek(0)
+                immufsClient.createFile(self.path, self.writeBuf, 0)
+                self.writeBuf = None
             self._fflush()
-            # cf. xmp_flush() in fusexmp_fh.c
-            os.close(os.dup(self.fd))
 
         def fgetattr(self):
-            print("fgetattr")
-            return os.fstat(self.fd)
+            st = ImmuStat()
+            st.st_mode = stat.S_IFREG | 0o777
+            st.st_nlink = 1
+            if(self.readedFileCache):
+                st.st_size = len(self.readedFileCache)
+            else:
+                st.st_size = 0
+            return st
 
         def ftruncate(self, len):
-            print("ftruncate", len)
-            self.file.truncate(len)
+            immufsClient.createFile(self.path, BytesIO(b''))
 
         def lock(self, cmd, owner, **kw):
             print("lock", cmd, owner, kw)
-            # The code here is much rather just a demonstration of the locking
-            # API than something which actually was seen to be useful.
-
-            # Advisory file locking is pretty messy in Unix, and the Python
-            # interface to this doesn't make it better.
-            # We can't do fcntl(2)/F_GETLK from Python in a platfrom independent
-            # way. The following implementation *might* work under Linux. 
-            #
-            # if cmd == fcntl.F_GETLK:
-            #     import struct
-            # 
-            #     lockdata = struct.pack('hhQQi', kw['l_type'], os.SEEK_SET,
-            #                            kw['l_start'], kw['l_len'], kw['l_pid'])
-            #     ld2 = fcntl.fcntl(self.fd, fcntl.F_GETLK, lockdata)
-            #     flockfields = ('l_type', 'l_whence', 'l_start', 'l_len', 'l_pid')
-            #     uld2 = struct.unpack('hhQQi', ld2)
-            #     res = {}
-            #     for i in xrange(len(uld2)):
-            #          res[flockfields[i]] = uld2[i]
-            #  
-            #     return fuse.Flock(**res)
-
-            # Convert fcntl-ish lock parameters to Python's weird
-            # lockf(3)/flock(2) medley locking API...
-            op = { fcntl.F_UNLCK : fcntl.LOCK_UN,
-                   fcntl.F_RDLCK : fcntl.LOCK_SH,
-                   fcntl.F_WRLCK : fcntl.LOCK_EX }[kw['l_type']]
-            if cmd == fcntl.F_GETLK:
-                return -EOPNOTSUPP
-            elif cmd == fcntl.F_SETLK:
-                if op != fcntl.LOCK_UN:
-                    op |= fcntl.LOCK_NB
-            elif cmd == fcntl.F_SETLKW:
-                pass
-            else:
-                return -EINVAL
-
-            fcntl.lockf(self.fd, op, kw['l_start'], kw['l_len'])
 
 
     def main(self, *a, **kw):
+        global immufsClient
+        url, port = self.serverurl.split(':')
+        print(url, int(port), self.login, self.password, self.database)
+        immufsClient = ImmuFSClient(url, int(port), self.login, self.password, self.database)
 
         self.file_class = self.XmpFile
 
@@ -264,16 +275,19 @@ Userspace nullfs-alike: mirror the filesystem tree from some point on.
                  usage=usage,
                  dash_s_do='setsingle')
 
-    server.parser.add_option(mountopt="root", metavar="PATH", default='/',
-                             help="mirror filesystem from under PATH [default: %default]")
-    server.parse(values=server, errex=1)
+    server.parser.add_option(mountopt="serverurl", metavar="SERVER", default='localhost:3322',
+                             help="immudb server url [default: %default]")
 
-    try:
-        if server.fuse_args.mount_expected():
-            os.chdir(server.root)
-    except OSError:
-        print("can't enter root of underlying filesystem", file=sys.stderr)
-        sys.exit(1)
+    server.parser.add_option(mountopt="login", metavar="LOGIN", default='immudb',
+                             help="immudb server login [default: %default]")
+
+    server.parser.add_option(mountopt="password", metavar="PASSWORD", default='immudb',
+                             help="immudb server password [default: %default]")
+
+    server.parser.add_option(mountopt="database", metavar="DATABASE", default='defaultdb',
+                             help="immudb server database [default: %default]")
+
+    server.parse(values=server, errex=1)
 
     server.main()
 

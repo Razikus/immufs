@@ -11,13 +11,16 @@ class ErrorCode(IntEnum):
     TARGET_FILE_IS_DIRECTORY = 2
 
 class ImmuFSClient:
-    def __init__(self, host, port):
+    def __init__(self, host, port, login, password, database):
         self.client = ImmudbClient(f"{host}:{port}")
         self.host = host
         self.port = port
+        self.login = login
+        self.password = password
+        self.database = database
 
     def ensureLogged(self):
-        self.client.login("immudb", "immudb", "defaultdb")
+        self.client.login(self.login, self.password, self.database)
 
     def _defaultEncode(self, what: str):
         return what.encode("utf-8")
