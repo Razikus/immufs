@@ -62,10 +62,6 @@ class ImmuFS(Fuse):
 
     def __init__(self, *args, **kw):
         Fuse.__init__(self, *args, **kw)
-        self.serverurl = "localhost:3322"
-        self.login = "immudb"
-        self.password = "immudb"
-        self.database = "defaultdb"
         
 
     def getattr(self, path):
@@ -173,15 +169,8 @@ class ImmuFS(Fuse):
         return ImmuStatVFS()
 
     def fsinit(self):
-
-        global immufsClient
-        print(self.serverurl)
-        print(self.login)
-        print(self.password)
-        print(self.database)
+        pass
         
-        immufsClient = ImmuFSClient('localhost', 3322)
-        print("fsinit")
 
     class XmpFile(object):
 
@@ -259,9 +248,11 @@ class ImmuFS(Fuse):
 
     def main(self, *a, **kw):
         global immufsClient
-        url, port = self.serverurl.split(':')
-        print(url, int(port), self.login, self.password, self.database)
-        immufsClient = ImmuFSClient(url, int(port), self.login, self.password, self.database)
+        parsed = self.parser.parse_args()[0]
+        print(parsed)
+        url, port = parsed.serverurl.split(':')
+        print(url, int(port), parsed.login, parsed.password, parsed.database)
+        immufsClient = ImmuFSClient(url, int(port), parsed.login, parsed.password, parsed.database)
 
         self.file_class = self.XmpFile
 
