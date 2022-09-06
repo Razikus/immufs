@@ -181,7 +181,6 @@ class ImmuFS(Fuse):
             self.readedFileCache = None
             self.readedFileCacheMeta = None
             self.readedFileLength = -1
-            self.writeBufLength = 0
             self.writeBuf = None
             self.tooBig = False
 
@@ -200,12 +199,11 @@ class ImmuFS(Fuse):
                 return -1
             if(self.writeBuf == None):
                 self.writeBuf = BytesIO()
-            if(self.writeBuf.tell() >= (4194304 - len(buf))):
-                self.writeBuf = None
-                self.tooBig = True
-                return 0
+            # if(self.writeBuf.tell() >= (4194304 - len(buf))):
+            #     self.writeBuf = None
+            #     self.tooBig = True
+            #     return 0
             self.writeBuf.write(buf)
-            self.writeBufLength = self.writeBufLength + len(buf)
             return(len(buf))
 
         def release(self, flags):
@@ -249,9 +247,8 @@ class ImmuFS(Fuse):
     def main(self, *a, **kw):
         global immufsClient
         parsed = self.parser.parse_args()[0]
-        print(parsed)
         url, port = parsed.serverurl.split(':')
-        print(url, int(port), parsed.login, parsed.password, parsed.database)
+        print("IMMUFS Starting!")
         immufsClient = ImmuFSClient(url, int(port), parsed.login, parsed.password, parsed.database)
 
         self.file_class = self.XmpFile
