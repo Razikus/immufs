@@ -5,6 +5,7 @@
 #    Adam Raźniewski  <adam@codenotary.com>
 
 from __future__ import print_function
+from genericpath import isfile
 
 import os, sys, stat, errno
 from pathlib import PurePath
@@ -29,16 +30,6 @@ if not hasattr(fuse, '__version__'):
 fuse.fuse_python_api = (0, 2)
 
 fuse.feature_assert('stateful_files', 'has_init')
-
-
-def flag2mode(flags):
-    md = {os.O_RDONLY: 'rb', os.O_WRONLY: 'wb', os.O_RDWR: 'wb+'}
-    m = md[flags & (os.O_RDONLY | os.O_WRONLY | os.O_RDWR)]
-
-    if flags | os.O_APPEND:
-        m = m.replace('w', 'a', 1)
-
-    return m
 
 class ImmuStatVFS:
     def __init__(self):
@@ -78,19 +69,19 @@ class ImmuFS(Fuse):
         
 
     def getattr(self, path):
-        isDir, error = immufsClient.isDirectory(PurePath(path))
+        isDir = immufsClient.getDirectoryByPath(PurePath(path))
         if(isDir):
             st = ImmuStat()
-            st.st_mode = stat.S_IFDIR | 0o777
+            st.st_mode = isDir.flags
             st.st_nlink = 2
             return st
 
-        isFile, error = immufsClient.isFile(PurePath(path))
+        isFile = immufsClient.getFileMeta(PurePath(path))
         if(isFile):
             st = ImmuStat()
-            st.st_mode = stat.S_IFREG | 0o777
+            st.st_mode = isFile.flags
             st.st_nlink = 1
-            st.st_size = len(error.value)
+            st.st_size = isFile.filesize
             return st
 
         return -errno.ENOENT
@@ -123,6 +114,14 @@ class ImmuFS(Fuse):
         os.link("." + path, "." + path1)
 
     def chmod(self, path, mode):
+        fileFrom = immufsClient.getFileMeta(path)
+        if fileFrom:
+            immufsClient.updateFileFlags(fileFrom.uniqueid, mode)
+        else:
+            isDir = immufsClient.getDirectoryUUID(path)
+            if isDir:
+                immufsClient.updateDirectoryFlags(isDir, mode)
+
         print("chmod", path, mode)
 
     def chown(self, path, user, group):
@@ -137,16 +136,16 @@ class ImmuFS(Fuse):
 
     def mknod(self, path, mode, dev):
         print("mknod", path, mode, dev)
-        os.mknod("." + path, mode, dev)
+        # os.mknod("." + path, mode, dev)
 
     def mkdir(self, path, mode):
-        immufsClient.createDirectory(PurePath(path).as_posix())
+        immufsClient.createDirectory(PurePath(path).as_posix(), 16384 | mode)
         # print("mkdir", path, mode)
         # os.mkdir("." + path, mode)
 
     def utime(self, path, times):
         print("utime", path, times)
-        os.utime("." + path, times)
+        # os.utime("." + path, times)
 
     def access(self, path, mode):
         print("access", path, mode)
@@ -187,11 +186,11 @@ class ImmuFS(Fuse):
     class XmpFile(object):
 
         def __init__(self, path, flags, *mode):
-            print("INIT FILE XMP", path, flags, mode, flag2mode(flags))
             self.path = path
             self.flags = flags
             self.mode = mode
             self.readedFileCache = None
+            self.readedFileCacheMeta = None
             self.readedFileLength = -1
             self.writeBufLength = 0
             self.writeBuf = None
@@ -199,19 +198,20 @@ class ImmuFS(Fuse):
 
         def read(self, length, offset):
             if(self.readedFileCache == None):
-                self.readedFileCache = immufsClient.readFile(self.path)
+                self.readedFileCacheMeta = immufsClient.getFile(self.path)
+                self.readedFileCache = self.readedFileCacheMeta.content
                 self.readedFileLength = length
-                return self.readedFileCache[offset:length]
+                return self.readedFileCache[offset: offset + length]
             else:
                 self.readedFileLength = self.readedFileLength + length
-                return self.readedFileCache[offset + self.readedFileLength:length]
+                return self.readedFileCache[offset: offset + length]
 
         def write(self, buf, offset):
             if(self.tooBig):
                 return -1
             if(self.writeBuf == None):
                 self.writeBuf = BytesIO()
-            if(self.writeBuf.tell() >= (33554432 - len(buf))):
+            if(self.writeBuf.tell() >= (4194304 - len(buf))):
                 self.writeBuf = None
                 self.tooBig = True
                 return 0
@@ -233,13 +233,16 @@ class ImmuFS(Fuse):
             print("XMP flush")
             if(self.writeBuf):
                 self.writeBuf.seek(0)
-                immufsClient.createFile(self.path, self.writeBuf, 0)
+                immufsClient.createFile(self.path, self.writeBuf, self.mode, 0)
                 self.writeBuf = None
             self._fflush()
 
         def fgetattr(self):
             st = ImmuStat()
-            st.st_mode = stat.S_IFREG | 0o777
+            if(self.mode and len(self.mode) > 0):
+                st.st_mode = self.mode[0]
+            elif(self.readedFileCacheMeta != None):
+                st.st_mode = self.readedFileCacheMeta.flags
             st.st_nlink = 1
             if(self.readedFileCache):
                 st.st_size = len(self.readedFileCache)
