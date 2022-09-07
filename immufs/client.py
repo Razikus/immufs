@@ -222,16 +222,28 @@ class ImmuFSClient:
             wholeContent = wholeFile.content[0:offset]
         readed = content.read()
         wholeContent = wholeContent + readed
+        explicitModeSet = False
         if(type(mode) == tuple and len(mode) > 0):
+            explicitModeSet = True
             mode = mode[0]
-        self.addFile(path.name, directory, mode, wholeContent)
+        fileExists = self.getFileMeta(path)
+        if fileExists:
+            if explicitModeSet:
+                self.addFile(path.name, directory, mode, wholeContent, uniqueId = fileExists.uniqueid)
+            else:
+                self.addFile(path.name, directory, fileExists.flags, wholeContent, uniqueId = fileExists.uniqueid)
+        else:
+            self.addFile(path.name, directory, mode, wholeContent)
         return True, None
 
     def generateUuid(self):
         return (str(int(time.time()))[4:] + str(uuid4()).replace("-", "")[6:])[0:32]
 
-    def addFile(self, name, directoryUUID, flags, content: bytes) -> str:
-        uuidNow = self.generateUuid()
+    def addFile(self, name, directoryUUID, flags, content: bytes, uniqueId = None) -> str:
+        if uniqueId == None:
+            uuidNow = self.generateUuid()
+        else:
+            uuidNow = uniqueId
         if directoryUUID:
             directory = self.getDirectoryByUUID(directoryUUID)
             if not directory:

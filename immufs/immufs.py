@@ -119,7 +119,13 @@ class ImmuFS(Fuse):
         pass
 
     def truncate(self, path, len):
-        immufsClient.createFile(path, BytesIO(b''))
+        exists = immufsClient.getFileMeta(path)
+        if exists:
+            mode = exists.flags
+        else:
+            mode = 16384
+        immufsClient.createFile(path, BytesIO(b''), mode)
+
 
     def mknod(self, path, mode, dev):
         pass
