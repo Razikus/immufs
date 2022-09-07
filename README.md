@@ -14,18 +14,18 @@ Immutable verifable filesystem on top of libfuse and immudb
 - [x] remove directories
 - [x] retrieve files less than 4mb
 - [x] file size
-- [] retrieve files more than 4mb (immudb max response, need to move to streaming)
-- [] fchmod
-- [] chown
-- [] fchown
-- [] last modified and utime
-- [] show how much space left (ImmuStatVFS)
-- [] lock
-- [] links
-- [] symlinks
-- [] access
-- [] mknod
-- [] readlink
+- [ ] retrieve files more than 4mb (immudb max response, need to move to streaming)
+- [ ] fchmod
+- [ ] chown
+- [ ] fchown
+- [ ] last modified and utime
+- [ ] show how much space left (ImmuStatVFS)
+- [ ] lock
+- [ ] links
+- [ ] symlinks
+- [ ] access
+- [ ] mknod
+- [ ] readlink
 
 
 ## Requirements
