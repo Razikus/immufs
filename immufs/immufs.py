@@ -83,8 +83,7 @@ class ImmuFS(Fuse):
         return -errno.ENOENT
 
     def readlink(self, path):
-        print("readlink", path)
-        return os.readlink("." + path)
+        pass
 
     def readdir(self, path, offset):
         dirs = immufsClient.list_directory(PurePath(path).as_posix())
@@ -98,16 +97,13 @@ class ImmuFS(Fuse):
         immufsClient.remove(path)
 
     def symlink(self, path, path1):
-        print("symlink", path)
-        os.symlink(path, "." + path1)
+        pass
 
     def rename(self, path, path1):
-        print("rename", path, path1)
         immufsClient.move(path, path1)
 
     def link(self, path, path1):
-        print("link", path, path1)
-        os.link("." + path, "." + path1)
+        pass
 
     def chmod(self, path, mode):
         fileFrom = immufsClient.getFileMeta(path)
@@ -118,35 +114,24 @@ class ImmuFS(Fuse):
             if isDir:
                 immufsClient.updateDirectoryFlags(isDir, mode)
 
-        print("chmod", path, mode)
 
     def chown(self, path, user, group):
-        print("chown", path, user, group)
+        pass
 
     def truncate(self, path, len):
         immufsClient.createFile(path, BytesIO(b''))
-        # print("truncate", path, len)
-        # f = open("." + path, "a")
-        # f.truncate(len)
-        # f.close()
 
     def mknod(self, path, mode, dev):
-        print("mknod", path, mode, dev)
-        # os.mknod("." + path, mode, dev)
+        pass
 
     def mkdir(self, path, mode):
         immufsClient.createDirectory(PurePath(path).as_posix(), 16384 | mode)
-        # print("mkdir", path, mode)
-        # os.mkdir("." + path, mode)
 
     def utime(self, path, times):
-        print("utime", path, times)
-        # os.utime("." + path, times)
+        pass
 
     def access(self, path, mode):
-        print("access", path, mode)
-        # if not os.access("." + path, mode):
-        #     return -EACCES
+        pass
 
     def statfs(self):
         """
@@ -165,7 +150,6 @@ class ImmuFS(Fuse):
             - f_ffree - nunber of free file inodes
         """
 
-        print("statfs")
         return ImmuStatVFS()
 
     def fsinit(self):
@@ -199,25 +183,19 @@ class ImmuFS(Fuse):
                 return -1
             if(self.writeBuf == None):
                 self.writeBuf = BytesIO()
-            # if(self.writeBuf.tell() >= (4194304 - len(buf))):
-            #     self.writeBuf = None
-            #     self.tooBig = True
-            #     return 0
             self.writeBuf.write(buf)
             return(len(buf))
 
         def release(self, flags):
-            print("release XML", flags)
+            pass
 
         def _fflush(self):
-            print("_fflush")
+            pass
 
         def fsync(self, isfsyncfile):
-            print("fsync", isfsyncfile)
             self._fflush()
 
         def flush(self):
-            print("XMP flush")
             if(self.writeBuf):
                 self.writeBuf.seek(0)
                 immufsClient.createFile(self.path, self.writeBuf, self.mode, 0)
@@ -241,7 +219,7 @@ class ImmuFS(Fuse):
             immufsClient.createFile(self.path, BytesIO(b''))
 
         def lock(self, cmd, owner, **kw):
-            print("lock", cmd, owner, kw)
+            pass
 
 
     def main(self, *a, **kw):

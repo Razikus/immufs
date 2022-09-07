@@ -6,20 +6,26 @@ Immutable verifable filesystem on top of libfuse and immudb
 [![asciicast](https://asciinema.org/a/519412.svg)](https://asciinema.org/a/519412)
 
 ## Features
-[x] mkdir
-[x] chmod
-[x] mv
-[x] create and retrieve files up to 4mb
-[x] remove files
-[x] remove directories
-[x] retrieve files less than 4mb
-[x] file size
-[] retrieve files more than 4mb (immudb max response, need to move to streaming)
-[] fchmod
-[] chown
-[] fchown
-[] last modified
-[] show how much space left
+- [x] mkdir
+- [x] chmod
+- [x] mv
+- [x] create and retrieve files up to 4mb
+- [x] remove files
+- [x] remove directories
+- [x] retrieve files less than 4mb
+- [x] file size
+- [] retrieve files more than 4mb (immudb max response, need to move to streaming)
+- [] fchmod
+- [] chown
+- [] fchown
+- [] last modified and utime
+- [] show how much space left (ImmuStatVFS)
+- [] lock
+- [] links
+- [] symlinks
+- [] access
+- [] mknod
+- [] readlink
 
 
 ## Requirements
