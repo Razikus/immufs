@@ -38,5 +38,5 @@ Immutable verifable filesystem on top of libfuse and immudb
 
 
 ## Auditing
-To enable full potential of immufs and immudb you should always consider external auditor that will constantly / on scheduled routing verify your database.
+To enable full potential of immufs and immudb you should always consider external auditor that will constantly / on scheduled time verify your database.
 
