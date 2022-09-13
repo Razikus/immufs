@@ -27,6 +27,12 @@ Immutable verifable filesystem on top of libfuse and immudb
 - [ ] mknod
 - [ ] readlink
 
+## Use cases
+- immutable documents storage
+- ransomware-resistant if storage is remote
+- with addition of public/private key - easy to implement encrypted immutable storage
+- instead of storing values we can make a proxy between original system and immudb to just watch access/calculate changes/log all
+- immutable backups in future 
 
 ## Requirements
 
